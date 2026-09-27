@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <title>Earn Mini App</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    *{box-sizing:border-box} body{margin:0;font-family:Arial,sans-serif;background:#f4f7fb;color:#172033}
+    .wrap{max-width:520px;margin:auto;padding:16px}
+    .hero{background:linear-gradient(135deg,#1677ff,#6a5cff);color:#fff;border-radius:22px;padding:22px;margin-bottom:14px}
+    .small{opacity:.85;font-size:13px}.balance{font-size:34px;font-weight:800;margin:8px 0 2px}
+    .card{background:#fff;border-radius:18px;padding:17px;margin:12px 0;box-shadow:0 5px 20px rgba(20,35,70,.07)}
+    h2{font-size:18px;margin:0 0 12px}.row{display:flex;gap:10px}.stat{flex:1;background:#f3f6fb;border-radius:14px;padding:13px}
+    .stat b{display:block;font-size:20px;margin-top:4px}.btn{border:0;border-radius:13px;padding:13px 15px;font-weight:700;font-size:15px;cursor:pointer;width:100%;background:#1677ff;color:white}
+    .btn.secondary{background:#edf3ff;color:#1262d9}.btn.dark{background:#172033}.btn:disabled{opacity:.5}
+    input,select{width:100%;padding:13px;border:1px solid #d9e0ea;border-radius:12px;font-size:15px;margin:6px 0 10px}
+    .nav{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}.nav button{padding:11px;border:0;border-radius:12px;background:#fff}
+    .section{display:none}.section.active{display:block}.notice{font-size:13px;color:#647084;line-height:1.5}
+    .adbox{border:2px dashed #cbd5e1;border-radius:16px;padding:24px;text-align:center;color:#667085;background:#fafcff}
+    .success{color:#087443;font-weight:700}.error{color:#b42318;font-size:13px}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <div class="small">Telegram Mini App</div>
+    <div id="name">Welcome 👋</div>
+    <div class="balance">৳ <span id="balance">0.00</span></div>
+    <div class="small">Available Balance</div>
+  </div>
+
+  <div id="home" class="section active">
+    <div class="card">
+      <h2>📢 Earn from Ads</h2>
+      <div class="adbox" id="adBox">Ad Space<br><small>এখানে আপনার Ad Network-এর বিজ্ঞাপন বসবে</small></div>
+      <br>
+      <button class="btn" onclick="watchAd()">▶ বিজ্ঞাপন দেখুন</button>
+      <p id="adMsg" class="notice"></p>
+    </div>
+    <div class="card">
+      <h2>📊 Your Stats</h2>
+      <div class="row">
+        <div class="stat">Ads Watched<b id="ads">0</b></div>
+        <div class="stat">Referrals<b id="refs">0</b></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="ref" class="section">
+    <div class="card">
+      <h2>👥 Refer & Earn</h2>
+      <p class="notice">আপনার Referral Link শেয়ার করুন। Backend-এ কমিশন সেট করলে এখানে Referral reward যোগ হবে।</p>
+      <input id="refLink" readonly>
+      <button class="btn secondary" onclick="copyRef()">🔗 Copy Referral Link</button>
+      <p id="copyMsg" class="success"></p>
+    </div>
+  </div>
+
+  <div id="withdraw" class="section">
+    <div class="card">
+      <h2>💸 Withdraw Request</h2>
+      <label>পেমেন্ট মাধ্যম</label>
+      <select id="method"><option>bKash</option><option>Nagad</option><option>Rocket</option></select>
+      <label>অ্যাকাউন্ট নম্বর</label>
+      <input id="number" inputmode="numeric" placeholder="01XXXXXXXXX">
+      <label>টাকার পরিমাণ</label>
+      <input id="amount" type="number" min="1" step="1" placeholder="Minimum amount">
+      <button class="btn" onclick="withdraw()">Withdraw Request</button>
+      <p id="wdMsg" class="notice"></p>
+    </div>
+  </div>
+
+  <div class="nav">
+    <button onclick="show('home')">🏠 Home</button>
+    <button onclick="show('ref')">👥 Referral</button>
+    <button onclick="show('withdraw')">💸 Withdraw</button>
+  </div>
+</div>
+
+<script>
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+
+let state = {balance:0, ads:0, refs:0};
+
+function save(){ /* Demo only. Production: save on your server. */ }
+function render(){
+  document.getElementById('balance').textContent = state.balance.toFixed(2);
+  document.getElementById('ads').textContent = state.ads;
+  document.getElementById('refs').textContent = state.refs;
+}
+function show(id){
+  document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function getUser(){
+  const u=tg?.initDataUnsafe?.user;
+  return u || null;
+}
+const user=getUser();
+if(user) document.getElementById('name').textContent='Hi, '+(user.first_name||'User')+' 👋';
+
+const botUsername='YOUR_BOT_USERNAME';
+const uid=user?.id || 'demo';
+document.getElementById('refLink').value =
+  'https://t.me/'+botUsername+'?start=ref_'+uid;
+
+function watchAd(){
+  const msg=document.getElementById('adMsg');
+  msg.textContent='Ad network এখনো যুক্ত করা হয়নি। নিচের watchAd() জায়গায় আপনার Ad SDK/API যুক্ত করতে হবে।';
+  // IMPORTANT: Do not credit users merely for clicking.
+  // Credit only after your ad provider confirms a valid completed ad event.
+}
+function copyRef(){
+  const el=document.getElementById('refLink');
+  el.select(); el.setSelectionRange(0,99999);
+  try { document.execCommand('copy'); document.getElementById('copyMsg').textContent='Referral link copied!'; }
+  catch(e){ document.getElementById('copyMsg').textContent='লিংকটি কপি করতে চাপ দিয়ে ধরে রাখুন।'; }
+}
+function withdraw(){
+  const n=document.getElementById('number').value.trim();
+  const a=Number(document.getElementById('amount').value);
+  const msg=document.getElementById('wdMsg');
+  if(!/^01\d{9}$/.test(n)){msg.className='error';msg.textContent='সঠিক বাংলাদেশি মোবাইল নম্বর দিন।';return;}
+  if(!Number.isFinite(a)||a<=0){msg.className='error';msg.textContent='সঠিক টাকার পরিমাণ দিন।';return;}
+  if(a>state.balance){msg.className='error';msg.textContent='আপনার ব্যালেন্স যথেষ্ট নয়।';return;}
+  msg.className='notice';msg.textContent='Demo: Withdraw request তৈরি হয়েছে। Production-এ এটি backend-এ পাঠাতে হবে।';
+}
+render();
+</script>
+</body>
+</html>
